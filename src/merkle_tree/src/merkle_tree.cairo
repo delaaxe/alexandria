@@ -41,7 +41,6 @@ struct Hasher {}
 
 mod pedersen {
     use hash::HashStateTrait;
-    use pedersen::PedersenTrait;
     use super::{Hasher, HasherTrait};
 
     impl PedersenHasherImpl of HasherTrait<Hasher> {
@@ -49,16 +48,14 @@ mod pedersen {
             Hasher {}
         }
         fn hash(ref self: Hasher, data1: felt252, data2: felt252) -> felt252 {
-            let mut state = PedersenTrait::new(data1);
-            state = state.update(data2);
-            state.finalize()
+            pedersen::pedersen(data1, data2)
         }
     }
 }
 
 mod poseidon {
     use hash::HashStateTrait;
-    use poseidon::PoseidonTrait;
+    use poseidon::hades_permutation;
     use super::{Hasher, HasherTrait};
 
     impl PoseidonHasherImpl of HasherTrait<Hasher> {
@@ -66,10 +63,8 @@ mod poseidon {
             Hasher {}
         }
         fn hash(ref self: Hasher, data1: felt252, data2: felt252) -> felt252 {
-            let mut state = PoseidonTrait::new();
-            state = state.update(data1);
-            state = state.update(data2);
-            state.finalize()
+            let (hash, _, _) = hades_permutation(data1, data2, 2);
+            hash
         }
     }
 }
@@ -193,7 +188,7 @@ fn compute_proof<T, +HasherTrait<T>, +Drop<T>>(
     }
 
     // Compute next level
-    let mut next_level: Array<felt252> = get_next_level(nodes.span(), ref hasher);
+    let next_level: Array<felt252> = get_next_level(nodes.span(), ref hasher);
 
     // Find neighbor node
     let mut index_parent = 0;

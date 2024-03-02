@@ -57,10 +57,14 @@ fn sub_mod(mut a: u256, mut b: u256, modulo: u256) -> u256 {
     // reduce values
     a = a % modulo;
     b = b % modulo;
-    if (a >= b) {
-        return a - b;
+    let (diff, overflow) = integer::u256_overflow_sub(a, b);
+    if overflow {
+        // Overflow back with add modulo
+        let (diff, _) = integer::u256_overflowing_add(diff, modulo);
+        diff
+    } else {
+        diff
     }
-    a + add_inverse_mod(b, modulo)
 }
 
 /// Function that performs modular multiplication.
@@ -104,10 +108,7 @@ fn pow_mod(mut base: u256, mut pow: u256, modulo: u256) -> u256 {
     let mod_non_zero: NonZero<u256> = integer::u256_try_as_non_zero(modulo).unwrap();
     let mut mult: u512 = u512 { limb0: 0_u128, limb1: 0_u128, limb2: 0_u128, limb3: 0_u128 };
 
-    loop {
-        if (pow <= 0) {
-            break base;
-        }
+    while (pow != 0) {
         if ((pow & 1) > 0) {
             mult = integer::u256_wide_mul(result, base);
             let (_, res_u256, _, _, _, _, _) = integer::u512_safe_divmod_by_u256(
