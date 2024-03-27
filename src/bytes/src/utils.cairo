@@ -1,6 +1,57 @@
+use alexandria_bytes::{Bytes, BytesTrait};
 use alexandria_data_structures::array_ext::ArrayTraitExt;
+use core::fmt::{Debug, Display, Formatter, Error};
+use core::to_byte_array::{AppendFormattedToByteArray, FormatAsByteArray};
 use integer::u128_byte_reverse;
 use keccak::{u128_to_u64, u128_split as u128_split_to_u64, cairo_keccak};
+
+fn format_byte_hex(byte: u8, ref f: Formatter) -> Result<(), Error> {
+    let base: NonZero<u8> = 16_u8.try_into().unwrap();
+    if byte < 0x10 {
+        // Add leading zero for single digit numbers
+        let zero: ByteArray = "0";
+        Display::fmt(@zero, ref f)?;
+    }
+    Display::fmt(@byte.format_as_byte_array(base), ref f)
+}
+
+impl BytesDebug of Debug<Bytes> {
+    fn fmt(self: @Bytes, ref f: Formatter) -> Result<(), Error> {
+        let mut i: usize = 0;
+        let prefix: ByteArray = "0x";
+        Display::fmt(@prefix, ref f)?;
+        let mut res: Result<(), Error> = Result::Ok(());
+        while i < self
+            .size() {
+                let (new_i, value) = self.read_u8(i);
+                res = format_byte_hex(value, ref f);
+                if res.is_err() {
+                    break;
+                }
+                i = new_i;
+            };
+        res
+    }
+}
+
+impl BytesDisplay of Display<Bytes> {
+    fn fmt(self: @Bytes, ref f: Formatter) -> Result<(), Error> {
+        let mut i: usize = 0;
+        let prefix: ByteArray = "0x";
+        Display::fmt(@prefix, ref f)?;
+        let mut res: Result<(), Error> = Result::Ok(());
+        while i < self
+            .size() {
+                let (new_i, value) = self.read_u8(i);
+                res = format_byte_hex(value, ref f);
+                if res.is_err() {
+                    break;
+                }
+                i = new_i;
+            };
+        res
+    }
+}
 
 /// Computes the keccak256 of multiple uint128 values.
 /// The values are interpreted as big-endian.
@@ -8,16 +59,12 @@ use keccak::{u128_to_u64, u128_split as u128_split_to_u64, cairo_keccak};
 fn keccak_u128s_be(mut input: Span<u128>, n_bytes: usize) -> u256 {
     let mut keccak_input = array![];
     let mut size = n_bytes;
-    loop {
-        match input.pop_front() {
-            Option::Some(v) => {
-                let value_size = uint_min(size, 16);
-                keccak_add_uint128_be(ref keccak_input, *v, value_size);
-                size -= value_size;
-            },
-            Option::None => { break; },
+    while let Option::Some(v) = input
+        .pop_front() {
+            let value_size = uint_min(size, 16);
+            keccak_add_uint128_be(ref keccak_input, *v, value_size);
+            size -= value_size;
         };
-    };
 
     let aligned = n_bytes % 8 == 0;
     if aligned {
@@ -71,14 +118,15 @@ fn update_u256_array_at(arr: @Array<u256>, index: usize, value: u256) -> Array<u
     let mut new_arr = array![];
     let mut i = 0;
 
-    while i != arr.len() {
-        if i == index {
-            new_arr.append(value);
-        } else {
-            new_arr.append(*arr[i]);
-        }
-        i += 1;
-    };
+    while i != arr
+        .len() {
+            if i == index {
+                new_arr.append(value);
+            } else {
+                new_arr.append(*arr[i]);
+            }
+            i += 1;
+        };
     new_arr
 }
 
